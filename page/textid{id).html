@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文章详情</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        header {
+            background-color: #007bff;
+            color: white;
+            padding: 10px;
+            text-align: center;
+        }
+        .content {
+            flex: 1;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>文章详情</h1>
+    </header>
+    <div class="content" id="content">
+        <!-- 文章内容将通过JavaScript动态加载 -->
+    </div>
+
+    <script>
+        const articleId = window.location.pathname.split('textid')[1].split('.html')[0];
+        fetch(`get_article.php?id=${articleId}`)
+            .then(response => response.json())
+            .then(data => {
+                const content = document.getElementById('content');
+                content.innerHTML = `
+                    <h2>${data.title}</h2>
+                    <p>${data.content}</p >
+                `;
+            });
+    </script>
+</body>
+</html>

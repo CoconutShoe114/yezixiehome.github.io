@@ -1,0 +1,520 @@
+用户表:
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    avatar VARCHAR(255),
+    display_name VARCHAR(50)
+);
+文章表:
+CREATE TABLE articles (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+login.html:
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .login-container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 300px;
+        }
+        .login-container h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .login-container input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .login-container button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .login-container button:hover {
+            background-color: #0056b3;
+        }
+        .error {
+            color: red;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h2>注册/登录</h2>
+        <div id="error-message" class="error"></div>
+        <input type="text" id="username" placeholder="用户名">
+        <input type="password" id="password" placeholder="密码">
+        <button onclick="register()">确定</button>
+    </div>
+
+    <script>
+        function register() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            fetch('register.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username, password })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = 'index.html';
+                } else {
+                    document.getElementById('error-message').innerText = data.message;
+                }
+            });
+        }
+    </script>
+</body>
+</html>
+register.php:
+<?php
+header('Content-Type: application/json');
+
+$servername = "localhost";
+$username = "root";
+$password = "";
+$dbname = "blog";
+
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+if ($conn->connect_error) {
+    die("连接失败: " . $conn->connect_error);
+}
+
+$data = json_decode(file_get_contents('php://input'), true);
+$username = $data['username'];
+$password = password_hash($data['password'], PASSWORD_DEFAULT);
+
+$stmt = $conn->prepare("SELECT id FROM users WHERE username = ?");
+$stmt->bind_param("s", $username);
+$stmt->execute();
+$stmt->store_result();
+
+if ($stmt->num_rows > 0) {
+    echo json_encode(['success' => false, 'message' => '用户名已被占用']);
+} else {
+    $stmt = $conn->prepare("INSERT INTO users (username, password) VALUES (?, ?)");
+    $stmt->bind_param("ss", $username, $password);
+    $stmt->execute();
+    echo json_encode(['success' => true]);
+}
+
+$stmt->close();
+$conn->close();
+?>
+index.html:
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>主页</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        header {
+            background-color: #007bff;
+            color: white;
+            padding: 10px;
+            text-align: center;
+        }
+        .content {
+            flex: 1;
+            padding: 20px;
+        }
+        .menu {
+            display: flex;
+            justify-content: space-around;
+            background-color: #007bff;
+            padding: 10px;
+        }
+        .menu button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        .menu button:hover {
+            background-color: #0056b3;
+        }
+        .article {
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .article h3 {
+            margin: 0;
+        }
+        .article p {
+            margin: 5px 0;
+        }
+        .article button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        .article button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>文章</h1>
+    </header>
+    <div class="content" id="content">
+        <!-- 文章内容将通过JavaScript动态加载 -->
+    </div>
+    <div class="menu">
+        <button onclick="loadArticles()">文章</button>
+        <button onclick="loadProfile()">我的</button>
+    </div>
+
+    <script>
+        function loadArticles() {
+            fetch('get_articles.php')
+                .then(response => response.json())
+                .then(data => {
+                    const content = document.getElementById('content');
+                    content.innerHTML = '';
+                    if (data.length > 0) {
+                        data.forEach(article => {
+                            const articleDiv = document.createElement('div');
+                            articleDiv.className = 'article';
+                            articleDiv.innerHTML = `
+                                <h3>${article.title}</h3>
+                                <p>${article.content.substring(0, 10)}...</p >
+                                <button onclick="viewArticle(${article.id})">查看</button>
+                            `;
+                            content.appendChild(articleDiv);
+                        });
+                    } else {
+                        content.innerHTML = '<p>暂无文章</p >';
+                    }
+                });
+        }
+
+        function loadProfile() {
+            const content = document.getElementById('content');
+            content.innerHTML = `
+                <h2>我的</h2>
+                <button onclick="createArticle()">新建文章</button>
+            `;
+        }
+
+        function viewArticle(id) {
+            window.location.href = `textid${id}.html`;
+        }
+
+        function createArticle() {
+            window.location.href = 'create.html';
+        }
+
+        // 默认加载文章
+        loadArticles();
+    </script>
+</body>
+</html>
+get_articles.php:
+<?php
+header('Content-Type: application/json');
+
+$servername = "localhost";
+$username = "root";
+$password = "";
+$dbname = "blog";
+
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+if ($conn->connect_error) {
+    die("连接失败: " . $conn->connect_error);
+}
+
+$sql = "SELECT id, title, content FROM articles";
+$result = $conn->query($sql);
+
+$articles = [];
+if ($result->num_rows > 0) {
+    while($row = $result->fetch_assoc()) {
+        $articles[] = $row;
+    }
+}
+
+echo json_encode($articles);
+
+$conn->close();
+?>
+create.html:
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>创建文章</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        header {
+            background-color: #007bff;
+            color: white;
+            padding: 10px;
+            text-align: center;
+        }
+        .content {
+            flex: 1;
+            padding: 20px;
+        }
+        .content input, .content textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .content button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        .content button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>创建文章</h1>
+    </header>
+    <div class="content">
+        <input type="text" id="title" placeholder="点击此处添加标题">
+        <textarea id="content" placeholder="输入文章内容"></textarea>
+        <button onclick="insertTable()">插入表格</button>
+        <button onclick="insertImage()">插入图片</button>
+        <button onclick="submitArticle()">确定</button>
+    </div>
+
+    <script>
+        function insertTable() {
+            const rows = prompt("请输入表格的行数（最多15行）");
+            const cols = prompt("请输入表格的列数（最多15列）");
+            if (rows && cols && rows <= 15 && cols <= 15) {
+                const table = document.createElement('table');
+                table.style.borderCollapse = 'collapse';
+                for (let i = 0; i < rows; i++) {
+                    const tr = document.createElement('tr');
+                    for (let j = 0; j < cols; j++) {
+                        const td = document.createElement('td');
+                        td.style.border = '1px solid #000';
+                        td.style.padding = '5px';
+                        tr.appendChild(td);
+                    }
+                    table.appendChild(tr);
+                }
+                document.getElementById('content').appendChild(table);
+            } else {
+                alert('请输入有效的行数和列数（最多15行15列）');
+            }
+        }
+
+        function insertImage() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = function(event) {
+                const file = event.target.files[0];
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.style.maxWidth = '100%';
+                    document.getElementById('content').appendChild(img);
+                };
+                reader.readAsDataURL(file);
+            };
+            input.click();
+        }
+
+        function submitArticle() {
+            const title = document.getElementById('title').value;
+            const content = document.getElementById('content').innerHTML;
+
+            fetch('submit_article.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ title, content })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = 'index.html';
+                } else {
+                    alert('提交失败');
+                }
+            });
+        }
+    </script>
+</body>
+</html>
+submit_article.php:
+<?php
+header('Content-Type: application/json');
+
+$servername = "localhost";
+$username = "root";
+$password = "";
+$dbname = "blog";
+
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+if ($conn->connect_error) {
+    die("连接失败: " . $conn->connect_error);
+}
+
+$data = json_decode(file_get_contents('php://input'), true);
+$title = $data['title'];
+$content = $data['content'];
+$user_id = 1; // 假设当前用户ID为1，实际应用中应从会话中获取
+
+$stmt = $conn->prepare("INSERT INTO articles (user_id, title, content) VALUES (?, ?, ?)");
+$stmt->bind_param("iss", $user_id, $title, $content);
+$stmt->execute();
+
+echo json_encode(['success' => true]);
+
+$stmt->close();
+$conn->close();
+?>
+textid{id}.html:
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文章详情</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        header {
+            background-color: #007bff;
+            color: white;
+            padding: 10px;
+            text-align: center;
+        }
+        .content {
+            flex: 1;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>文章详情</h1>
+    </header>
+    <div class="content" id="content">
+        <!-- 文章内容将通过JavaScript动态加载 -->
+    </div>
+
+    <script>
+        const articleId = window.location.pathname.split('textid')[1].split('.html')[0];
+        fetch(`get_article.php?id=${articleId}`)
+            .then(response => response.json())
+            .then(data => {
+                const content = document.getElementById('content');
+                content.innerHTML = `
+                    <h2>${data.title}</h2>
+                    <p>${data.content}</p >
+                `;
+            });
+    </script>
+</body>
+</html>
+get_article.php:
+<?php
+header('Content-Type: application/json');
+
+$servername = "localhost";
+$username = "root";
+$password = "";
+$dbname = "blog";
+
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+if ($conn->connect_error) {
+    die("连接失败: " . $conn->connect_error);
+}
+
+$id = $_GET['id'];
+$sql = "SELECT title, content FROM articles WHERE id = $id";
+$result = $conn->query($sql);
+
+if ($result->num_rows > 0) {
+    $row = $result->fetch_assoc();
+    echo json_encode($row);
+} else {
+    echo json_encode(['error' => '文章未找到']);
+}
+
+$conn->close();
+?>

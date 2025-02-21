@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>创建文章</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        header {
+            background-color: #007bff;
+            color: white;
+            padding: 10px;
+            text-align: center;
+        }
+        .content {
+            flex: 1;
+            padding: 20px;
+        }
+        .content input, .content textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .content button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        .content button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>创建文章</h1>
+    </header>
+    <div class="content">
+        <input type="text" id="title" placeholder="点击此处添加标题">
+        <textarea id="content" placeholder="输入文章内容"></textarea>
+        <button onclick="insertTable()">插入表格</button>
+        <button onclick="insertImage()">插入图片</button>
+        <button onclick="submitArticle()">确定</button>
+    </div>
+
+    <script>
+        function insertTable() {
+            const rows = prompt("请输入表格的行数（最多15行）");
+            const cols = prompt("请输入表格的列数（最多15列）");
+            if (rows && cols && rows <= 15 && cols <= 15) {
+                const table = document.createElement('table');
+                table.style.borderCollapse = 'collapse';
+                for (let i = 0; i < rows; i++) {
+                    const tr = document.createElement('tr');
+                    for (let j = 0; j < cols; j++) {
+                        const td = document.createElement('td');
+                        td.style.border = '1px solid #000';
+                        td.style.padding = '5px';
+                        tr.appendChild(td);
+                    }
+                    table.appendChild(tr);
+                }
+                document.getElementById('content').appendChild(table);
+            } else {
+                alert('请输入有效的行数和列数（最多15行15列）');
+            }
+        }
+
+        function insertImage() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = function(event) {
+                const file = event.target.files[0];
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.style.maxWidth = '100%';
+                    document.getElementById('content').appendChild(img);
+                };
+                reader.readAsDataURL(file);
+            };
+            input.click();
+        }
+
+        function submitArticle() {
+            const title = document.getElementById('title').value;
+            const content = document.getElementById('content').innerHTML;
+
+            fetch('submit_article.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ title, content })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = '../index.html';
+                } else {
+                    alert('提交失败');
+                }
+            });
+        }
+    </script>
+</body>
+</html>
